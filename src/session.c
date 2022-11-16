@@ -194,13 +194,31 @@ int receive_id_str(ssh_session session) {
      */
 
     /* according to RFC 4253 the max banner length is 255 */
-    for (int i = 0; i < 256; ++i) {
-        ssh_socket_read(session->socket, &buffer[i], 1);
-        // LAB: insert your code here.
-
+    int max_tries = 10;
+    while (max_tries > 0 && (!(memcmp(buffer, "SSH-", 4) == 0))) {
+        bool cr_rcvd = false;
+        for (int i = 0; i < 256; ++i) {
+            ssh_socket_read(session->socket, &buffer[i], 1);
+            if (buffer[i] == '\r') {
+                cr_rcvd = true;
+            }
+            if (buffer[i] == '\n' && cr_rcvd == true) {
+                buffer[i-1] = '\0';
+                break;
+            }
+        }
+        max_tries--;
     }
-    /* this line should not be reached */
-    return SSH_ERROR;
+    if (max_tries == 0) {
+        LOG_DEBUG("sentence rcvd:%s", buffer);
+        return SSH_ERROR;
+    }
+    else {
+        session->server_id_str = strdup(buffer);
+        LOG_DEBUG("session_server_id_str - %s", session->server_id_str);
+        return 0;
+    }
+    
 }
 
 /**
